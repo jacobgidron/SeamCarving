@@ -7,11 +7,12 @@ import utils
 NDArray = Any
 
 
-def delete_seam(image: NDArray, seam: NDArray) -> NDArray:
+def delete_seam(image: NDArray, idxs: NDArray, seam: NDArray) -> NDArray:
     h, w = image.shape[0], image.shape[1]
     mask = np.ones((h, w), dtype=bool)
     mask[range(h), seam] = False
-    return image[mask].reshape(h, w - 1)
+    return image[mask].reshape(h, w - 1), idxs[mask].reshape(h, w - 1)
+
 
 def delete_seams(image: NDArray, seam: NDArray, k: int) -> NDArray:
     h, w = image.shape[0], image.shape[1]
@@ -19,6 +20,21 @@ def delete_seams(image: NDArray, seam: NDArray, k: int) -> NDArray:
     rows = np.arange(h).reshape(h, 1)
     mask[rows, seam] = False
     return image[mask].reshape(h, w - k)
+
+
+def find_best_seam(keys: NDArray, last_idx: int, idxs: NDArray, seam: NDArray) -> NDArray:
+    h = keys.shape[0]
+    next = last_idx
+    for i in range(h, -1, -1):
+        seam[i] = idxs[i, next]
+        next = keys[i, next]
+
+def color_seams(image: NDArray, seams: NDArray, col: str) -> NDArray:
+    h = image.shape[0]
+    rows = np.arange(h).reshape(h, 1)
+    color = np.array([255, 0, 0]) if col == 'red' else np.array([0, 0, 0])
+    image[rows, seams] = color
+
 
 def find_vrt_seams(image: NDArray, k: int) -> NDArray:
     """
