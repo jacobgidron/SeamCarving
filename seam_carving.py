@@ -7,6 +7,13 @@ import utils
 NDArray = Any
 
 
+def delete_seam(image: NDArray, seam: NDArray) -> NDArray:
+    h, w = image.shape[0], image.shape[1]
+    mask = np.ones((h, w), dtype=bool)
+    mask[range(h), seam] = False
+    return image[mask].reshape(h, w - 1)
+
+
 def find_vrt_seams(image: NDArray, k: int) -> NDArray:
     """
     :param image:
