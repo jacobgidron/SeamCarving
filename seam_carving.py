@@ -16,22 +16,22 @@ def find_vrt_seams(image: NDArray, k: int) -> NDArray:
     # pad the image 1 column each side
     # todo
 
-    pd = np.zeros((image.shape[0], k))
-    c = np.zeros((3, image.shape[0]))
+    seams = np.zeros((image.shape[0], k))
+    c = np.zeros((3, image.shape[1]))
     m = np.zeros_like(image)
     keys = np.zeros_like(image)
     energy = utils.get_gradients(image)
     for i in range(k):
         for row in range(1, m.shape[0]):
             # calculate the cost of the last row
-            c[:, :] = image[row, :-2] + image[row, 2:]
-            c[0, :] += np.absolute(image[row - 1, 1:-1] + image[row, :-2]) + m[row - 1, :-2]
+            c[:, :] = np.absolute(image[row, :-2] - image[row, 2:])
+            c[0, :] += np.absolute(image[row - 1, 1:-1] - image[row, :-2]) + m[row - 1, :-2]
             c[1, :] += m[row - 1, 1:-1]
-            c[2, :] += np.absolute(image[row - 1, 1:-1] + image[row, 2:]) + m[row - 1, 2:]
+            c[2, :] += np.absolute(image[row - 1, 1:-1] - image[row, 2:]) + m[row - 1, 2:]
             # add a pixel energy to the cost
             m[row, :] = energy[row, :] + np.min(c, axis=0)
             # save the indexes for later
-            keys[row, :] = np.argmin(c, axis=0)
+            keys[row, :] = np.argmin(c, axis=0)  # use unused rows of m
 
 
 def resize(image: NDArray, out_height: int, out_width: int, forward_implementation: bool) -> Dict[str, NDArray]:
