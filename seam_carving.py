@@ -8,14 +8,14 @@ NDArray = Any
 
 
 def delete_seam(image: NDArray, idxs: NDArray, seam: NDArray) -> NDArray:
-    h, w = image.shape[0], image.shape[1]
+    h, w = image.shape
     mask = np.ones((h, w), dtype=bool)
     mask[range(h), seam+1] = False
     return image[mask].reshape(h, w - 1), idxs[mask].reshape(h, w - 1)
 
 
 def delete_seams(image: NDArray, seams: NDArray, k: int) -> NDArray:
-    h, w = image.shape[0], image.shape[1]
+    h, w = image.shape
     mask = np.ones((h, w), dtype=bool)
     rows = np.arange(h).reshape(h, 1)
     mask[rows, seams] = False
@@ -23,8 +23,13 @@ def delete_seams(image: NDArray, seams: NDArray, k: int) -> NDArray:
 
 
 def dup_seams(image: NDArray, seams: NDArray, k: int) -> NDArray:
+    flat = image.flatten()
+    doubler = np.ones_like(flat)
+    doubler[seams.flatten()] = 2
+    new = np.repeat(flat, doubler)
     h, w = image.shape[0], image.shape[1] + k
-
+    new = new.reshape(h, w)
+    return new
 
 
 def find_best_seam(keys: NDArray, last_idx, idxs: NDArray, seam: NDArray) -> NDArray:
@@ -115,3 +120,8 @@ def resize(image: NDArray, out_height: int, out_width: int, forward_implementati
     hrz_seams = []
 
     # TODO: return { 'resized' : img1, 'vertical_seams' : img2 ,'horizontal_seams' : img3}
+
+if __name__ == '__main__':
+    a = np.arange(20).reshape(4, 5)
+    b = np.array([[3, 1], [9, 6], [13, 10], [19, 15]])
+    dup_seams(a, b, 2)
