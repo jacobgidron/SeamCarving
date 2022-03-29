@@ -14,20 +14,29 @@ def delete_seam(image: NDArray, idxs: NDArray, seam: NDArray) -> NDArray:
     return image[mask].reshape(h, w - 1), idxs[mask].reshape(h, w - 1)
 
 
-def delete_seams(image: NDArray, seam: NDArray, k: int) -> NDArray:
+def delete_seams(image: NDArray, seams: NDArray, k: int) -> NDArray:
     h, w = image.shape[0], image.shape[1]
     mask = np.ones((h, w), dtype=bool)
     rows = np.arange(h).reshape(h, 1)
-    mask[rows, seam] = False
+    mask[rows, seams] = False
     return image[mask].reshape(h, w - k)
 
 
-def find_best_seam(keys: NDArray, last_idx: int, idxs: NDArray, seam: NDArray) -> NDArray:
+def dup_seams(image: NDArray, seams: NDArray, k: int) -> NDArray:
+    h, w = image.shape[0], image.shape[1] + k
+
+
+
+def find_best_seam(keys: NDArray, last_idx, idxs: NDArray, seam: NDArray) -> NDArray:
     h = keys.shape[0]
     next = last_idx
-    for i in range(h, -1, -1):
+    relative_seam = np.zeros(h,dtype=int)
+    for i in range(h-1, -1, -1):
         seam[i] = idxs[i, next]
+        relative_seam[i] = next
         next = keys[i, next]
+    return relative_seam
+
 
 def color_seams(image: NDArray, seams: NDArray, col: str) -> NDArray:
     h = image.shape[0]
