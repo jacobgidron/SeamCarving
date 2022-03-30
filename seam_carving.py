@@ -15,26 +15,21 @@ def delete_seam(image: NDArray, idxs: NDArray, seam: NDArray) -> NDArray:
 
 
 def delete_seams(image: NDArray, seams: NDArray, k: int) -> NDArray:
-    h, w = image.shape
-    mask = np.ones((h, w), dtype=bool)
-    rows = np.arange(h).reshape(h, 1)
-    mask[rows, seams] = False
-    return image[mask].reshape(h, w - k)
+    h, w = image.shape[:2]
+    flat = image.reshape(-1, 3)
+    mask = np.ones_like(flat, dtype=bool)
+    mask[seams.flatten(), :] = False
+    return flat[mask].reshape(h, w - k, 3)
 
 
-def dup_seams(im: NDArray, seams: NDArray, k: int) -> NDArray:
-    h, w = im.shape[0], im.shape[1] + k
-    new_img = np.zeros((h, w, 3))
-    for i in range(3):
-        image = im[:, :, i]
-        flat = image.flatten()
-        doubler = np.ones_like(flat, dtype=int)
-        doubler[seams.flatten()] = 2
-        new = np.repeat(flat, doubler)
-        h, w = image.shape[0], image.shape[1] + k
-        new_img[:, :, i] = new.reshape(h, w)
-
-    return new_img
+def dup_seams(image: NDArray, seams: NDArray, k: int) -> NDArray:
+    h, w = image.shape[0], image.shape[1] + k
+    flat = image.reshape(-1, 3)
+    doubler = np.ones(flat.shape[0], dtype=int)
+    doubler[seams.flatten()] = 2
+    new = np.repeat(flat, doubler, axis=0)
+    new = new.reshape([h, w, 3])
+    return new
 
 
 def find_best_seam(keys: NDArray, last_idx, idxs: NDArray, seam: NDArray) -> NDArray:
@@ -57,7 +52,7 @@ def color_seams(image: NDArray, seams: NDArray, col: str) -> NDArray:
     return image
 
 
-def find_vrt_seams(image: NDArray, k: int, idx_mat: NDArray) -> NDArray:
+def find_vrt_seams(image: NDArray, k: int, idx_mat: NDArray, forward=False) -> NDArray:
     """
     :param image:
     :param k:
@@ -78,20 +73,30 @@ def find_vrt_seams(image: NDArray, k: int, idx_mat: NDArray) -> NDArray:
         # first row is only the energy
         energy = utils.get_gradients(image[:, 1:-1])
         m[1:-1] = energy[0, :]
-        for row in range(1, keys.shape[0]):
-            # calculate the cost of the last row for each option
-            c[:, :] = np.absolute(image[row, :-2] - image[row, 2:])
-            np.nan_to_num(c, nan=255, copy=False)
-            c[0, :] += np.absolute(image[row - 1, 1:-1] - image[row, :-2]) + m[:-2]
-            c[1, :] += m[1:-1]
-            c[2, :] += np.absolute(image[row - 1, 1:-1] - image[row, 2:]) + m[2:]
-            # add a pixel energy to the cost
-            # print(row)
-            m[1:-1] = energy[row, :] + np.nanmin(c, axis=0)
-
-            # save the indexes for forward
-            keys[row, :] = \
-                idx + np.nanargmin(c, axis=0) - 1
+        if forward:
+            for row in range(1, keys.shape[0]):
+                # calculate the cost of the last row for each option
+                c[:, :] = np.absolute(image[row, :-2] - image[row, 2:])
+                np.nan_to_num(c, nan=255, copy=False)
+                c[0, :] += np.absolute(image[row - 1, 1:-1] - image[row, :-2]) + m[:-2]
+                c[1, :] += m[1:-1]
+                c[2, :] += np.absolute(image[row - 1, 1:-1] - image[row, 2:]) + m[2:]
+                # add a pixel energy to the cost
+                m[1:-1] = energy[row, :] + np.nanmin(c, axis=0)
+                # save the indexes for forward
+                keys[row, :] = \
+                    idx + np.nanargmin(c, axis=0) - 1
+        else:
+            for row in range(1, keys.shape[0]):
+                # calculate the cost of the last row for each option
+                c[0, :] = m[:-2]
+                c[1, :] = m[1:-1]
+                c[2, :] = m[2:]
+                # add a pixel energy to the cost
+                m[1:-1] = energy[row, :] + np.nanmin(c, axis=0)
+                # save the indexes for forward
+                keys[row, :] = \
+                    idx + np.nanargmin(c, axis=0) - 1
         best_idx = np.nanargmin(m)
         # find the best seam save it to seams
         corr_seam = find_best_seam(keys, best_idx, idx_mat, seams[:, i])
@@ -131,9 +136,8 @@ def resize(image: NDArray, out_height: int, out_width: int, forward_implementati
     idx_mat = np.arange(o_height * o_width).reshape(o_height, o_width)
     k = out_width - o_width
     if forward_implementation:
-        seams = find_vrt_seams(gray, abs(k), idx_mat)
+        seams = find_vrt_seams(gray, abs(k), idx_mat, forward=True)
     else:
-        # todo implement the find_vrt_seams without forward
         seams = find_vrt_seams(gray, abs(k), idx_mat)
     vertical_seams = color_seams(image, seams, "red")
 
@@ -147,9 +151,8 @@ def resize(image: NDArray, out_height: int, out_width: int, forward_implementati
     u = out_height - o_height
     gray = utils.to_grayscale(image)
     if forward_implementation:
-        seams = find_vrt_seams(gray, abs(u), idx_mat)
+        seams = find_vrt_seams(gray, abs(u), idx_mat, forward=True)
     else:
-        # todo implement the find_vrt_seams without forward
         seams = find_vrt_seams(gray, abs(u), idx_mat)
     horizontal_seams = color_seams(image, seams, "black")
     horizontal_seams = np.rot90(horizontal_seams,k=3)
