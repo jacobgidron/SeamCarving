@@ -68,16 +68,17 @@ def find_vrt_seams(image: NDArray, k: int, idx_mat: NDArray, forward=False) -> N
     pad = np.zeros((image.shape[0], 1)) + np.nan
     image = np.hstack((pad, image, pad))
     m = np.zeros(image.shape[1])
-    m[[0, -1]] = np.nan
     for i in range(k):
         # first row is only the energy
         energy = utils.get_gradients(image[:, 1:-1])
         m[1:-1] = energy[0, :]
+        m[[0, -1]] = np.nan
         if forward:
             for row in range(1, keys.shape[0]):
                 # calculate the cost of the last row for each option
                 c[:, :] = np.absolute(image[row, :-2] - image[row, 2:])
-                np.nan_to_num(c, nan=255, copy=False)
+                c[:, [0, -1]] = 255
+                # np.nan_to_num(c, nan=255, copy=False)
                 c[0, :] += np.absolute(image[row - 1, 1:-1] - image[row, :-2]) + m[:-2]
                 c[1, :] += m[1:-1]
                 c[2, :] += np.absolute(image[row - 1, 1:-1] - image[row, 2:]) + m[2:]
@@ -97,7 +98,7 @@ def find_vrt_seams(image: NDArray, k: int, idx_mat: NDArray, forward=False) -> N
                 # save the indexes for forward
                 keys[row, :] = \
                     idx + np.nanargmin(c, axis=0) - 1
-        best_idx = np.nanargmin(m)
+        best_idx = np.nanargmin(m) - 1
         # find the best seam save it to seams
         corr_seam = find_best_seam(keys, best_idx, idx_mat, seams[:, i])
         # delete the seam
@@ -125,12 +126,6 @@ def resize(image: NDArray, out_height: int, out_width: int, forward_implementati
             where img1 is the resized image and img2/img3 are the visualization images
             (where the chosen seams are colored red and black for vertical and horizontal seams, respectively).
     """
-
-    # img1, img2, img3 = None, None, None
-
-    def o_idx(idx: int) -> Tuple[int, int]:
-        return idx // o_width, idx % o_width
-
     o_height, o_width, _ = image.shape
     gray = utils.to_grayscale(image)
     idx_mat = np.arange(o_height * o_width).reshape(o_height, o_width)
@@ -155,7 +150,7 @@ def resize(image: NDArray, out_height: int, out_width: int, forward_implementati
     else:
         seams = find_vrt_seams(gray, abs(u), idx_mat)
     horizontal_seams = color_seams(image, seams, "black")
-    horizontal_seams = np.rot90(horizontal_seams,k=3)
+    horizontal_seams = np.rot90(horizontal_seams, k=3)
     if u > 0:
         image = dup_seams(image, seams, u)
     else:
